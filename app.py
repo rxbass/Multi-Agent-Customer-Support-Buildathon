@@ -58,7 +58,10 @@ RECONCILER_MODEL = os.environ.get("CREWDESK_RECONCILER_MODEL", MODEL_NAME)
 CONFIDENCE_THRESHOLD = 0.60          # below this Agent 3's verdict becomes a refusal
 REFUSAL_TEXT = "I couldn't verify this confidently."
 ANSWERS_FILE = "answers.txt"
-AGENT_TIMEOUT_S = 150                # hard cap per agent so a stuck run fails instead of hanging
+AGENT_TIMEOUT_S = 90                 # hard cap per agent so a stuck run fails instead of hanging
+# CrewAI retries a failed task up to max_retry_limit times (default 2), so a stalled
+# agent would burn 3 x AGENT_TIMEOUT_S before the user sees anything. Allow one retry.
+AGENT_RETRIES = 1
 
 # ---------------------------------------------------------------------------
 # 2. Structured verdict — Agent 3's output schema
@@ -67,8 +70,12 @@ AGENT_TIMEOUT_S = 150                # hard cap per agent so a stuck run fails i
 
 class ReconciledAnswer(BaseModel):
     query: str
-    direct_answer: str
-    web_answer: str
+    # Agent 3 is told to leave these two empty: they are the prior agents' answers
+    # verbatim, and app.py fills them from the actual task outputs after kickoff().
+    # Making the model retype ~300 tokens of text it was given is the single
+    # biggest latency cost in the crew, and a transcription risk on top.
+    direct_answer: str = ""
+    web_answer: str = ""
     sources: list[str]
     contradiction_found: bool
     contradiction_severity: Literal["none", "minor", "material"]
@@ -117,14 +124,19 @@ def build_crew(task_callback: Optional[Callable] = None):
     # --- tools ---------------------------------------------------------------
     search_tool = SerperDevTool(n_results=5)   # Agent 2 ONLY
 
+    prior: dict = {}                   # filled with task1/task2 once they exist
+
     @tool("Save support record")
-    def save_support_record(
-        query: str, direct_answer: str, web_answer: str, resolved_answer: str
-    ) -> str:
-        """Append the customer query, the direct answer, the web answer and the
-        resolved answer to answers.txt. Call this exactly once, after you have
-        decided on the resolved answer. Returns a confirmation string."""
-        return write_record(query, direct_answer, web_answer, resolved_answer)
+    def save_support_record(query: str, resolved_answer: str) -> str:
+        """Append the support record to answers.txt: the customer query, BOTH prior
+        answers, and your resolved answer. The two prior answers are attached
+        automatically from the earlier tasks — do not paste them in. Call this
+        exactly once, after you have decided on the resolved answer."""
+        def raw(name: str) -> str:
+            t = prior.get(name)
+            out = getattr(t, "output", None)
+            return (getattr(out, "raw", "") or "") if t is not None else ""
+        return write_record(query, raw("task1"), raw("task2"), resolved_answer)
 
     # --- agents --------------------------------------------------------------
     assistant = Agent(
@@ -140,8 +152,9 @@ def build_crew(task_callback: Optional[Callable] = None):
         tools=[],                       # no tools: this is the source under check
         allow_delegation=False,
         max_iter=3,
-        max_rpm=10,
+        max_rpm=30,                     # see note above: low values cause a blind 60 s sleep
         max_execution_time=AGENT_TIMEOUT_S,
+        max_retry_limit=AGENT_RETRIES,
         verbose=True,
     )
 
@@ -157,8 +170,9 @@ def build_crew(task_callback: Optional[Callable] = None):
         tools=[search_tool],            # Serper on Agent 2 ONLY
         allow_delegation=False,
         max_iter=3,                     # budget guard against tool loops
-        max_rpm=10,
+        max_rpm=30,
         max_execution_time=AGENT_TIMEOUT_S,
+        max_retry_limit=AGENT_RETRIES,
         verbose=True,
     )
 
@@ -179,8 +193,9 @@ def build_crew(task_callback: Optional[Callable] = None):
         tools=[save_support_record],    # file writer only
         allow_delegation=False,
         max_iter=3,
-        max_rpm=10,
+        max_rpm=30,
         max_execution_time=AGENT_TIMEOUT_S,
+        max_retry_limit=AGENT_RETRIES,
         verbose=True,
     )
 
@@ -256,21 +271,28 @@ def build_crew(task_callback: Optional[Callable] = None):
             "needs private data that neither answer has; a generic explanation "
             "of how such things usually work does NOT answer it, so confidence "
             "MUST be 0.3 or lower.\n"
-            "4. Call the 'Save support record' tool exactly once with the query, "
-            "the direct answer, the web answer and your resolved answer.\n"
+            "4. Call the 'Save support record' tool exactly once, passing only the "
+            "customer's query and your resolved answer. Both prior answers are "
+            "attached to the record automatically — do NOT paste them into the "
+            "tool call.\n"
             "5. Return the final verdict as JSON matching the required schema. "
-            "Carry the direct answer and web answer forward verbatim, and copy "
-            "the source URLs from the web answer without changing them."
+            "Set direct_answer and web_answer to empty strings \"\" — they are "
+            "filled in from the prior task outputs, so do not retype them. Copy "
+            "the source URLs from the web answer without changing them. Be "
+            "concise: the only long field you write is resolved_answer."
         ),
         expected_output=(
             "A JSON object with fields: query, direct_answer, web_answer, sources, "
             "contradiction_found, contradiction_severity, contradiction_detail, "
-            "resolved_answer, confidence."
+            "resolved_answer, confidence — with direct_answer and web_answer left "
+            "as empty strings."
         ),
         agent=entry_agent,
         context=[task1, task2],         # receives the query + both prior answers
         output_pydantic=ReconciledAnswer,
     )
+
+    prior["task1"], prior["task2"] = task1, task2     # the file tool reads these
 
     crew = Crew(
         agents=[assistant, web_searcher, entry_agent],
@@ -303,7 +325,7 @@ def _file_size(path: str) -> int:
     return os.path.getsize(path) if os.path.exists(path) else 0
 
 
-def run_query(query: str, on_task_done: Optional[Callable[[int], None]] = None) -> RunResult:
+def run_query(query: str, on_task_done: Optional[Callable[[int, str], None]] = None) -> RunResult:
     """Run the crew for one query. Never raises: failures come back in `error`,
     together with whichever answers were produced before the failure."""
     completed = []
@@ -311,7 +333,7 @@ def run_query(query: str, on_task_done: Optional[Callable[[int], None]] = None) 
     def _task_done(output):
         completed.append(output)
         if on_task_done:
-            on_task_done(len(completed))
+            on_task_done(len(completed), getattr(output, "raw", "") or "")
 
     crew = build_crew(task_callback=_task_done)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -338,6 +360,12 @@ def run_query(query: str, on_task_done: Optional[Callable[[int], None]] = None) 
         except Exception:
             verdict = None
     if verdict is not None:
+        # Provenance, not judgement: fill from the real task outputs so the verdict
+        # always carries the exact prior answers (the model never retypes them).
+        verdict.direct_answer = direct_raw
+        verdict.web_answer = web_raw
+        if not verdict.query:
+            verdict.query = query
         verdict = apply_confidence_rule(verdict)
 
     # Agent 3 should have saved the record via its tool. If the file did not
@@ -514,7 +542,7 @@ def screen_output(res: "RunResult") -> "RunResult":
     return res
 
 
-def guarded_run(raw_query: str, on_task_done: Optional[Callable[[int], None]] = None) -> "RunResult":
+def guarded_run(raw_query: str, on_task_done: Optional[Callable[[int, str], None]] = None) -> "RunResult":
     """The single entry point used by the UI and by evaluation mode:
     input guardrails -> crew -> output guardrails. Never raises."""
     screen = screen_input(raw_query)
@@ -689,11 +717,24 @@ def run_and_store(query: str) -> None:
     for i, s in enumerate(steps):
         lines[i].markdown(f"{'⏳' if i == 0 else '◽'} {s}")
 
-    def on_task_done(n: int) -> None:
+    # Partial answers are shown as they land, so the user reads Agent 1's answer
+    # in a few seconds instead of staring at a spinner until Agent 3 finishes.
+    early = st.container()
+    shown: dict = {}
+
+    def on_task_done(n: int, text: str) -> None:
         lines[n - 1].markdown(f"✅ {steps[n - 1]}")
         if n < len(steps):
             lines[n].markdown(f"⏳ {steps[n]}")
             status.update(label=f"Running the crew… ({n}/3 done)", expanded=True)
+        if n == 1:
+            with early:
+                st.markdown("#### 🧠 Direct answer — not yet verified")
+                shown["d"] = st.info(text)
+        elif n == 2:
+            with early:
+                st.markdown("#### 🌐 Web answer — reconciling…")
+                shown["w"] = st.info(text)
 
     res = guarded_run(query, on_task_done=on_task_done)
     if res.small_talk_reply:

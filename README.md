@@ -66,8 +66,9 @@ User Query (Streamlit input)
         │
         ▼
 ┌──────────────────────────┐
-│ Input guardrails         │  length cap · prompt-injection heuristics
-│ (functions, not an agent)│  · PII masking · OpenAI moderation (free)
+│ Input guardrails         │  small talk → instant reply · length cap
+│ (functions, not an agent)│  · prompt-injection heuristics · PII masking
+│                          │  · OpenAI moderation (free)
 └────────────┬─────────────┘
              ▼
 ┌──────────────────────────┐
@@ -142,8 +143,8 @@ from typing import Literal
 
 class ReconciledAnswer(BaseModel):
     query: str
-    direct_answer: str                                    # Agent 1, carried forward
-    web_answer: str                                       # Agent 2, carried forward
+    direct_answer: str = ""                               # Agent 1's answer, filled by app.py
+    web_answer: str = ""                                  # Agent 2's answer, filled by app.py
     sources: list[str]                                    # Agent 2's real URLs
     contradiction_found: bool                             # web conflicts with model?
     contradiction_severity: Literal["none", "minor", "material"]
@@ -152,6 +153,18 @@ class ReconciledAnswer(BaseModel):
                                                           # refusal string when unverified
     confidence: float                                     # agent-ASSESSED, 0.0–1.0
 ```
+
+**Why two fields are filled by the app, not the model.** `direct_answer` and
+`web_answer` are the prior answers *verbatim*. Making Agent 3 reproduce them — once
+as tool arguments and again in the JSON — cost ~300 output tokens at the median and
+~1,800 at the worst, and since output tokens are generated serially that was the
+single reason the reconciler dominated latency (and sometimes truncated its own
+JSON mid-copy). Now the file tool pulls both answers straight from the earlier task
+outputs, and `app.py` fills these two fields from `result.tasks_output[i].raw`. The
+record and the verdict are byte-exact rather than an LLM transcription, and every
+judgement field — `contradiction_found`, `contradiction_severity`,
+`contradiction_detail`, `resolved_answer`, `confidence` — is still entirely the
+agent's.
 
 **`confidence` is agent-assessed, not objective reliability.** It drives a defined,
 reproducible rule:
@@ -176,9 +189,13 @@ matter of the model's mood.
 | Graceful degradation | A failed web search crashing the app | Fall back to `direct_answer`, and say so |
 | Confidence threshold | Confident wrong answers | `< 0.60` → explicit refusal |
 | `output_pydantic` | UI breaking on messy LLM text | Structured verdict |
+| No verbatim re-typing | Agent 3 dominating latency and truncating its own JSON while copying both answers | File tool pulls the prior answers; `app.py` fills the two provenance fields |
+| Progressive display | A blank spinner for the whole run | Agent 1's answer is shown as soon as it lands, then Agent 2's, then the reconciled verdict |
 | Input guardrails | Prompt injection, PII leakage, abusive queries | Regex heuristics + PII masking + OpenAI moderation, before the crew runs |
 | Output moderation | Unsafe text reaching the customer | Every answer moderated before display; flagged text withheld |
-| Per-agent timeout | A stalled agent hanging the UI | `max_execution_time=150` → clean error |
+| Per-agent timeout | A stalled agent hanging the UI | `max_execution_time=90` → clean error |
+| Retry cap | CrewAI's default `max_retry_limit=2` re-running a timed-out task, so one stalled agent costs 3× the timeout | `max_retry_limit=1` → worst case 180 s, not 450 s |
+| `max_rpm=30`, not 10 | CrewAI's RPM controller does a blind `time.sleep(60)` when the limit is hit, and it is consulted on every LLM call *and* tool step — a low cap silently added a minute to ordinary queries | Set high enough that a single query never trips it, while still bounding a runaway loop |
 
 <details>
 <summary><b>Guardrails in detail</b> (click to expand)</summary>
@@ -290,11 +307,17 @@ streamlit run app.py
 ```
 
 Streamlit opens `http://localhost:8501`. Type a support question (e.g.
-*"What is the latest stable version of Python?"*), click **Ask**, and wait for
-the spinner — the crew runs Assistant → Web Search → Entry Agent (typically
-10–30 s). You'll see the **Direct answer**, the **Web answer** with sources, and
-the **Resolved answer**. Each run appends a record to `answers.txt` in the repo
-root; the terminal running Streamlit shows the verbose agent trace.
+*"What is the latest stable version of Python?"*) and click **Ask**. The crew runs
+Assistant → Web Search → Entry Agent, typically 10–30 s in total, and the answers
+appear **as they land**: the direct answer within a few seconds (labelled *not yet
+verified*), then the web answer, then the reconciled verdict with a confidence bar
+and the two answers side by side. Greetings like "hi" are answered instantly
+without running the crew.
+
+Earlier questions from the same session stay on the page under **Earlier in this
+session**, collapsed and tagged with their outcome — display only; each question is
+still an independent crew run. Every run appends a record to `answers.txt` in the
+repo root, and the terminal shows the verbose agent trace.
 
 ### Step 6 — Run the evaluation (optional)
 
@@ -344,11 +367,19 @@ number is the honest one.
 
 ### Results — 2026-09-20, all agents `gpt-4o-mini`
 
+> **Note:** these numbers were measured before the reconciler latency fix (the two
+> provenance fields are no longer retyped by Agent 3) and before the timeout/retry
+> caps were tightened. The verdict behaviour is unchanged in kind, but a re-run
+> would show lower latency and fewer stalls. Re-running evaluation mode regenerates
+> `eval_results.json` and these figures.
+
 Raw per-item output is in [`eval_results.json`](eval_results.json); its `summary`
 block is computed by the same `summarize()` the sidebar uses, so **the numbers
 below are exactly what the app's evaluation mode shows** — nothing is adjusted by
 hand. 16 cases: 6 catch, 6 control, 4 refusal. **14 runs produced a verdict; 2
-timed out** at the 150 s per-agent cap and are excluded from every rate.
+timed out** at the per-agent cap (150 s in that run; since lowered to 90 s with a
+single retry after this was found to be a latency problem) and are excluded from
+every rate.
 
 **Provenance, stated plainly:** 15 rows come from one full 16-item run. The original
 `catch-02` ("current monthly price of ChatGPT Plus") turned out not to be a stale
@@ -460,6 +491,14 @@ file.
   neither of which is fed back into the agents. The **"Earlier in this session"**
   transcript on the page is display-only: each question is still an independent
   crew run that receives nothing but that question.
+- **The reconciler never retypes what it was given.** The measured cost of the two
+  carried-forward fields was ~300 output tokens per query (worst case ~1,800), all
+  of it serial generation. The tool now pulls both prior answers from the task
+  outputs and the app fills those two schema fields, so Agent 3 only writes its
+  own judgement. Faster, and byte-exact instead of an LLM copy.
+- **Partial answers stream to the UI.** The direct answer appears a few seconds in,
+  labelled *not yet verified*, then the web answer, then the reconciled verdict —
+  so the wait is visible progress rather than a blank spinner.
 - **`output_pydantic` everywhere it matters** — structured verdict, robust UI,
   scorable output.
 - **`max_iter` / `max_rpm` caps** — cheap insurance against the classic multi-agent
