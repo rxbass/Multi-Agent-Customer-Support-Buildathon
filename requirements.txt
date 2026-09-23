@@ -1,0 +1,11 @@
+# SupportCrew runtime dependencies — pinned to the versions the app was built and verified with.
+# Python 3.10+ (verified on 3.13.5).
+#
+#   pip install -r requirements.txt
+#
+# crewai and crewai-tools must be a matching pair; do not upgrade one without the other.
+crewai==1.15.22
+crewai-tools==1.15.22
+streamlit==1.63.0
+pydantic==2.12.5
+python-dotenv==1.2.3

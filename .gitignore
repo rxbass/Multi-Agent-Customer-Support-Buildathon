@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# generated per run by Agent 3
+answers.txt
+
+# local build instructions, not part of the submission
+CLAUDE.md

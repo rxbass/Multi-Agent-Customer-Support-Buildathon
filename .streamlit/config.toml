@@ -1,0 +1,10 @@
+# Streamlit theme (config, not code). Base palette; app.py adds the gradients and card tints.
+[theme]
+base = "light"
+primaryColor = "#6D5DF6"
+backgroundColor = "#EEF2FF"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1F2937"
+
+[browser]
+gatherUsageStats = false

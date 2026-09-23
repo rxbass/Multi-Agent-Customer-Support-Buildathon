@@ -1,0 +1,163 @@
+{
+  "_about": {
+    "purpose": "Hand-labelled queries for SupportCrew's optional evaluation mode. Each item is labelled with the EXPECTED behaviour so catch rate can be reported alongside false-positive rate. Labels are ground truth the human defines, not measured results.",
+    "verify_before_use": "The 'catch' cases assume the model answers from stale memory while the live web has the current answer. This depends on the model's training cut-off and on what is actually true on the web at build time. VERIFY each catch case when you build: confirm the model's likely answer is genuinely outdated and that a web search returns the corrected fact. Adjust or replace any case that no longer holds.",
+    "categories": {
+      "catch": "Model memory is likely stale; web should correct it. Expect contradiction_found=true, severity=material.",
+      "control": "Model is reliably correct on stable info. Expect contradiction_found=false (measures false-positive rate).",
+      "refusal": "Unanswerable without private/account data. Expect the closed-fail refusal (low confidence)."
+    },
+    "scoring": {
+      "catch_rate": "share of 'catch' cases where Agent 3 returned contradiction_found=true AND severity='material'",
+      "false_positive_rate": "share of 'control' cases where Agent 3 wrongly returned contradiction_found=true",
+      "refusal_correct": "share of 'refusal' cases where resolved_answer was the refusal string / confidence < 0.60"
+    }
+  },
+  "items": [
+    {
+      "id": "catch-01",
+      "query": "What is the latest stable version of Python?",
+      "category": "catch",
+      "expect_contradiction": true,
+      "expect_severity": "material",
+      "expect_refusal": false,
+      "rationale": "Version advances over time; a model answering from memory may name an older release than the current stable one on python.org."
+    },
+    {
+      "id": "catch-02",
+      "query": "What is the latest Ubuntu LTS release?",
+      "category": "catch",
+      "expect_contradiction": true,
+      "expect_severity": "material",
+      "expect_refusal": false,
+      "rationale": "A new LTS ships every two years (April of even years); a model with a 2023 cut-off names 22.04 while ubuntu.com lists the current LTS.",
+      "replaced": "2026-09-20: replaced 'current monthly price of ChatGPT Plus' — in the first run the model's remembered price ($20) was still current, so the stale-memory premise did not hold and the case could not produce a catch."
+    },
+    {
+      "id": "catch-03",
+      "query": "What is the newest iPhone model available right now?",
+      "category": "catch",
+      "expect_contradiction": true,
+      "expect_severity": "material",
+      "expect_refusal": false,
+      "rationale": "A new flagship ships roughly yearly; memory likely lags the current model."
+    },
+    {
+      "id": "catch-04",
+      "query": "What is the current Long-Term Support (LTS) version of Node.js?",
+      "category": "catch",
+      "expect_contradiction": true,
+      "expect_severity": "material",
+      "expect_refusal": false,
+      "rationale": "LTS lines rotate on a schedule; the model may name a superseded LTS."
+    },
+    {
+      "id": "catch-05",
+      "query": "What are the current free-tier limits for the OpenAI API?",
+      "category": "catch",
+      "expect_contradiction": true,
+      "expect_severity": "material",
+      "expect_refusal": false,
+      "rationale": "Provider limits/policies change; memory is prone to stating outdated terms."
+    },
+    {
+      "id": "catch-06",
+      "query": "What is the latest version of the CrewAI framework?",
+      "category": "catch",
+      "expect_contradiction": true,
+      "expect_severity": "material",
+      "expect_refusal": false,
+      "rationale": "Fast-moving library; the current release on PyPI likely differs from memory."
+    },
+    {
+      "id": "control-01",
+      "query": "How do I reset my password?",
+      "category": "control",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": false,
+      "rationale": "Generic, stable procedure (the spec's own example); the direct answer should be fine and the web should not contradict it."
+    },
+    {
+      "id": "control-02",
+      "query": "What is two-factor authentication (2FA)?",
+      "category": "control",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": false,
+      "rationale": "Stable definitional concept; no contradiction expected."
+    },
+    {
+      "id": "control-03",
+      "query": "What does an HTTP 404 status code mean?",
+      "category": "control",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": false,
+      "rationale": "Stable technical fact; direct answer reliable."
+    },
+    {
+      "id": "control-04",
+      "query": "What are some tips for creating a strong password?",
+      "category": "control",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": false,
+      "rationale": "Well-established guidance; web should broadly agree."
+    },
+    {
+      "id": "control-05",
+      "query": "What is a VPN and what is it used for?",
+      "category": "control",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": false,
+      "rationale": "Stable definitional concept; no contradiction expected."
+    },
+    {
+      "id": "control-06",
+      "query": "How do I clear the cache in a web browser?",
+      "category": "control",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": false,
+      "rationale": "Broadly stable procedure; minor UI wording differences should not rise to a material contradiction."
+    },
+    {
+      "id": "refusal-01",
+      "query": "Why was my order #A-4471 delayed?",
+      "category": "refusal",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": true,
+      "rationale": "Account-specific; no public web truth exists. Expect the closed-fail refusal."
+    },
+    {
+      "id": "refusal-02",
+      "query": "What is the current balance in my account?",
+      "category": "refusal",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": true,
+      "rationale": "Private data; unanswerable without authentication. Expect refusal."
+    },
+    {
+      "id": "refusal-03",
+      "query": "When exactly will my refund be processed?",
+      "category": "refusal",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": true,
+      "rationale": "Depends on a specific account/transaction; not web-verifiable. Expect refusal."
+    },
+    {
+      "id": "refusal-04",
+      "query": "Is the warranty on my specific device still valid?",
+      "category": "refusal",
+      "expect_contradiction": false,
+      "expect_severity": "none",
+      "expect_refusal": true,
+      "rationale": "Requires private purchase details; not answerable from the web. Expect refusal."
+    }
+  ]
+}

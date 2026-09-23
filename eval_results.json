@@ -1,0 +1,226 @@
+{
+  "_about": {
+    "generated": "2026-09-20",
+    "config": "all agents gpt-4o-mini",
+    "note": "15 rows from one full 16-item run; catch-02 was replaced (ChatGPT Plus price -> latest Ubuntu LTS) and run separately the same day because the original premise did not hold. Summary computed from rows with app.summarize(); rates exclude timed-out runs (errors).",
+    "replaced_row_original": {
+      "id": "catch-02",
+      "category": "catch",
+      "query": "What is the current monthly price of ChatGPT Plus?",
+      "severity": "none",
+      "confidence": 1.0,
+      "outcome": "missed",
+      "pass": false,
+      "seconds": 12.7,
+      "tokens": 7165,
+      "error": ""
+    }
+  },
+  "summary": {
+    "catch_rate": 1.0,
+    "false_positive_rate": 0.4,
+    "refusal_correct": 1.0,
+    "errors": 2,
+    "avg_seconds": 21.692857142857143,
+    "avg_tokens": 9343.214285714286,
+    "counts": {
+      "catch": 6,
+      "control": 5,
+      "refusal": 3
+    }
+  },
+  "rows": [
+    {
+      "id": "catch-01",
+      "category": "catch",
+      "query": "What is the latest stable version of Python?",
+      "severity": "material",
+      "confidence": 1.0,
+      "outcome": "caught",
+      "pass": true,
+      "seconds": 14.4,
+      "tokens": 7069,
+      "error": ""
+    },
+    {
+      "id": "catch-02",
+      "category": "catch",
+      "query": "What is the latest Ubuntu LTS release?",
+      "severity": "material",
+      "confidence": 1.0,
+      "outcome": "caught",
+      "pass": true,
+      "seconds": 14.5,
+      "tokens": 7120,
+      "error": ""
+    },
+    {
+      "id": "catch-03",
+      "category": "catch",
+      "query": "What is the newest iPhone model available right now?",
+      "severity": "material",
+      "confidence": 1.0,
+      "outcome": "caught",
+      "pass": true,
+      "seconds": 16.5,
+      "tokens": 7775,
+      "error": ""
+    },
+    {
+      "id": "catch-04",
+      "category": "catch",
+      "query": "What is the current Long-Term Support (LTS) version of Node.js?",
+      "severity": "material",
+      "confidence": 1.0,
+      "outcome": "caught",
+      "pass": true,
+      "seconds": 16.6,
+      "tokens": 10125,
+      "error": ""
+    },
+    {
+      "id": "catch-05",
+      "category": "catch",
+      "query": "What are the current free-tier limits for the OpenAI API?",
+      "severity": "material",
+      "confidence": 0.9,
+      "outcome": "caught",
+      "pass": true,
+      "seconds": 31.6,
+      "tokens": 13573,
+      "error": ""
+    },
+    {
+      "id": "catch-06",
+      "category": "catch",
+      "query": "What is the latest version of the CrewAI framework?",
+      "severity": "material",
+      "confidence": 0.9,
+      "outcome": "caught",
+      "pass": true,
+      "seconds": 19.2,
+      "tokens": 10626,
+      "error": ""
+    },
+    {
+      "id": "control-01",
+      "category": "control",
+      "query": "How do I reset my password?",
+      "severity": "minor",
+      "confidence": 0.8,
+      "outcome": "false positive",
+      "pass": false,
+      "seconds": 32.2,
+      "tokens": 10609,
+      "error": ""
+    },
+    {
+      "id": "control-02",
+      "category": "control",
+      "query": "What is two-factor authentication (2FA)?",
+      "severity": "none",
+      "confidence": 1.0,
+      "outcome": "clean",
+      "pass": true,
+      "seconds": 23.1,
+      "tokens": 9159,
+      "error": ""
+    },
+    {
+      "id": "control-03",
+      "category": "control",
+      "query": "What does an HTTP 404 status code mean?",
+      "severity": "none",
+      "confidence": 1.0,
+      "outcome": "clean",
+      "pass": true,
+      "seconds": 14.6,
+      "tokens": 7370,
+      "error": ""
+    },
+    {
+      "id": "control-04",
+      "category": "control",
+      "query": "What are some tips for creating a strong password?",
+      "severity": "minor",
+      "confidence": 0.9,
+      "outcome": "false positive",
+      "pass": false,
+      "seconds": 27.3,
+      "tokens": 10359,
+      "error": ""
+    },
+    {
+      "id": "control-05",
+      "category": "control",
+      "query": "What is a VPN and what is it used for?",
+      "severity": "—",
+      "confidence": null,
+      "outcome": "no verdict",
+      "pass": false,
+      "seconds": 180.0,
+      "tokens": 0,
+      "error": "TimeoutError: Task 'Today's date: 2026-09-20\nCustomer query: What is a VPN and what is it used for?\n\nYou have received the DIRECT ANSWER (from model knowledge) and the WEB ANSWER (from live search, with sources) as context. Judge them against today's date: a direct answer phrased 'as of <an earlier year>' for a 'latest/current' question is likely stale if the web answer names something newer.\n\n1. Compare the two answers. A contradiction exists ONLY when the two answers assert incompatible facts about the same thing (a different version number, price, date, limit, policy, or a yes vs. no). One answer being longer, more detailed, more platform-specific, differently worded, or covering extra examples is NOT a contradiction — that is severity 'none'. Rate severity: 'none' (no incompatible facts), 'minor' (a small factual discrepancy that would not change what the customer does), or 'material' (a fact, figure, version, price or policy differs in a way that would mislead the customer). Quote the specific conflicting facts in contradiction_detail, or leave it empty when severity is 'none'.\n2. Write the resolved answer: the best-supported answer, preferring the web answer when it is well-sourced and conflicts with the direct answer.\n3. Assess your confidence from 0.0 to 1.0 that the resolved answer actually answers the customer's question and is verifiable. Below 0.60 the customer will be shown 'I couldn't verify this confidently.' instead of your resolved answer. Confidence measures whether the question got answered — NOT how sure you are that it cannot be answered. If the query is about the customer's own order, refund, account, balance, warranty or device ('my order', 'my refund', 'my account'...), it needs private data that neither answer has; a generic explanation of how such things usually work does NOT answer it, so confidence MUST be 0.3 or lower.\n4. Call the 'Save support record' tool exactly once with the query, the direct answer, the web answer and your resolved answer.\n5. Return the final verdict as JSON matching the required schema. Carry the direct answer and web answer forward verbatim, and copy the source URLs from the web answer without changing them.' execution timed out after 150 seconds. Consider increasing max_execution_time or optimizing the task."
+    },
+    {
+      "id": "control-06",
+      "category": "control",
+      "query": "How do I clear the cache in a web browser?",
+      "severity": "none",
+      "confidence": 1.0,
+      "outcome": "clean",
+      "pass": true,
+      "seconds": 49.0,
+      "tokens": 14684,
+      "error": ""
+    },
+    {
+      "id": "refusal-01",
+      "category": "refusal",
+      "query": "Why was my order #A-4471 delayed?",
+      "severity": "none",
+      "confidence": 0.3,
+      "outcome": "refused",
+      "pass": true,
+      "seconds": 13.8,
+      "tokens": 7257,
+      "error": ""
+    },
+    {
+      "id": "refusal-02",
+      "category": "refusal",
+      "query": "What is the current balance in my account?",
+      "severity": "none",
+      "confidence": 0.3,
+      "outcome": "refused",
+      "pass": true,
+      "seconds": 11.7,
+      "tokens": 6513,
+      "error": ""
+    },
+    {
+      "id": "refusal-03",
+      "category": "refusal",
+      "query": "When exactly will my refund be processed?",
+      "severity": "material",
+      "confidence": 0.3,
+      "outcome": "refused",
+      "pass": true,
+      "seconds": 19.2,
+      "tokens": 8566,
+      "error": ""
+    },
+    {
+      "id": "refusal-04",
+      "category": "refusal",
+      "query": "Is the warranty on my specific device still valid?",
+      "severity": "—",
+      "confidence": null,
+      "outcome": "no verdict",
+      "pass": false,
+      "seconds": 179.5,
+      "tokens": 0,
+      "error": "TimeoutError: Task 'Today's date: 2026-09-20\nCustomer query: Is the warranty on my specific device still valid?\n\nYou have received the DIRECT ANSWER (from model knowledge) and the WEB ANSWER (from live search, with sources) as context. Judge them against today's date: a direct answer phrased 'as of <an earlier year>' for a 'latest/current' question is likely stale if the web answer names something newer.\n\n1. Compare the two answers. A contradiction exists ONLY when the two answers assert incompatible facts about the same thing (a different version number, price, date, limit, policy, or a yes vs. no). One answer being longer, more detailed, more platform-specific, differently worded, or covering extra examples is NOT a contradiction — that is severity 'none'. Rate severity: 'none' (no incompatible facts), 'minor' (a small factual discrepancy that would not change what the customer does), or 'material' (a fact, figure, version, price or policy differs in a way that would mislead the customer). Quote the specific conflicting facts in contradiction_detail, or leave it empty when severity is 'none'.\n2. Write the resolved answer: the best-supported answer, preferring the web answer when it is well-sourced and conflicts with the direct answer.\n3. Assess your confidence from 0.0 to 1.0 that the resolved answer actually answers the customer's question and is verifiable. Below 0.60 the customer will be shown 'I couldn't verify this confidently.' instead of your resolved answer. Confidence measures whether the question got answered — NOT how sure you are that it cannot be answered. If the query is about the customer's own order, refund, account, balance, warranty or device ('my order', 'my refund', 'my account'...), it needs private data that neither answer has; a generic explanation of how such things usually work does NOT answer it, so confidence MUST be 0.3 or lower.\n4. Call the 'Save support record' tool exactly once with the query, the direct answer, the web answer and your resolved answer.\n5. Return the final verdict as JSON matching the required schema. Carry the direct answer and web answer forward verbatim, and copy the source URLs from the web answer without changing them.' execution timed out after 150 seconds. Consider increasing max_execution_time or optimizing the task."
+    }
+  ]
+}
